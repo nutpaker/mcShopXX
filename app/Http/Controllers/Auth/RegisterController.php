@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Authme;
 use App\Http\Controllers\Controller;
 use App\Providers\RouteServiceProvider;
-use App\User;
+
 use Illuminate\Foundation\Auth\RegistersUsers;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use phpDocumentor\Reflection\Types\Null_;
 
 class RegisterController extends Controller
 {
@@ -50,9 +53,9 @@ class RegisterController extends Controller
     protected function validator(array $data)
     {
         return Validator::make($data, [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'username' => ['required', 'string', 'max:255','unique:authme','regex:/(^[a-zA-Z0-9_\s]+$)/u'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:authme'],
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
         ]);
     }
 
@@ -60,14 +63,46 @@ class RegisterController extends Controller
      * Create a new user instance after a valid registration.
      *
      * @param  array  $data
-     * @return \App\User
+     * @return \App\Authme
      */
     protected function create(array $data)
     {
-        return User::create([
-            'name' => $data['name'],
+        $ip =  \Request::ip();
+
+        return Authme::create([
+            'username' => trim(strtolower($data['username'])),
+            'realname' => trim($this->getRealname($data)),
             'email' => $data['email'],
-            'password' => Hash::make($data['password']),
+            'password' => $this->hashPassword($data['password']),
+            'ip'=> $ip,
+            'regip' => $ip,
+            'regdate' => now()->timestamp
         ]);
+    }
+
+    protected function getRealname(array $data){
+        $endPoint = 'https://api.mojang.com/users/profiles/minecraft/'.$data['username'].'?at='.now()->timestamp;
+        $json = json_decode(file_get_contents($endPoint, true),true);
+        if($json['name']){
+            return $json['name'];
+        }
+        return $data['username'];
+
+    }
+
+    protected function salt($length = 16)
+    {
+        $characters = '0123456789abcdefghijklmnopqrstuvwxyz';
+        $charactersLength = strlen($characters);
+        $randomString = '';
+        for ($i = 0; $i < $length; $i++) {
+            $randomString .= $characters[rand(0, $charactersLength - 1)];
+        }
+        return $randomString;
+    }
+
+    protected function hashPassword($password){
+         $salt = $this->salt();
+        return $hash = '$SHA$' . $salt . '$' . hash('sha256', hash('sha256', $password) . $salt);
     }
 }
