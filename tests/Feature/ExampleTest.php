@@ -14,7 +14,8 @@ class ExampleTest extends TestCase
      */
     public function testBasicTest()
     {
-        $response = $this->get('/');
+        $response = $this->get('https://api.mojang.com/users/profiles/minecraft/numnoi?at=1579364447');
+
 
         $response->assertStatus(200);
     }
